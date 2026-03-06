@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitor: RHOM BHO (TITLE:SET)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    :root {
+      --clr-bg:      #0d1117;
+      --clr-card:    #161b22;
+      --clr-border:  #30363d;
+      --clr-accent:  #58a6ff;
+      --clr-danger:  #f85149;
+      --clr-warn:    #d29922;
+      --clr-ok:      #3fb950;
+      --clr-muted:   #8b949e;
+      --clr-text:    #e6edf3;
+    }
+    body { background:var(--clr-bg); color:var(--clr-text); font-family:'Segoe UI',system-ui,sans-serif; font-size:.92rem; }
+    .navbar-brand { font-weight:700; letter-spacing:.5px; }
+    .card { background:var(--clr-card); border:1px solid var(--clr-border); border-radius:10px; }
+    .card-header { background:transparent; border-bottom:1px solid var(--clr-border); font-weight:600; font-size:.88rem; letter-spacing:.4px; text-transform:uppercase; color:var(--clr-muted); }
+    .section-title { font-size:1rem; font-weight:700; color:var(--clr-accent); display:flex; align-items:center; gap:.5rem; margin-bottom:1rem; }
+    .stock-price { font-size:2.4rem; font-weight:800; }
+    .stock-change-pos { color:var(--clr-ok); }
+    .stock-change-neg { color:var(--clr-danger); }
+    .stock-change-neu { color:var(--clr-muted); }
+    .stock-label { font-size:.75rem; color:var(--clr-muted); text-transform:uppercase; }
+    .stock-val { font-size:1.05rem; font-weight:600; }
+    .news-item { border-left:3px solid var(--clr-border); padding:.55rem .75rem; margin-bottom:.6rem; border-radius:0 6px 6px 0; background:rgba(255,255,255,.02); transition:background .15s; }
+    .news-item:hover { background:rgba(255,255,255,.05); }
+    .news-item.threat-high { border-left-color:var(--clr-danger); background:rgba(248,81,73,.08); }
+    .news-item.threat-med  { border-left-color:var(--clr-warn);   background:rgba(210,153,34,.07); }
+    .news-title { font-weight:600; font-size:.93rem; }
+    .news-title a { color:var(--clr-text); text-decoration:none; }
+    .news-title a:hover { color:var(--clr-accent); }
+    .news-meta { font-size:.75rem; color:var(--clr-muted); margin-top:.25rem; }
+    .news-summary { font-size:.82rem; color:#adbac7; margin-top:.3rem; line-height:1.45; }
+    .badge-threat { background:var(--clr-danger); }
+    .badge-warn   { background:var(--clr-warn); }
+    .badge-source { background:transparent; border:1px solid var(--clr-border); color:var(--clr-muted); font-size:.7rem; }
+    .badge-type   { background:#21262d; color:var(--clr-muted); font-size:.7rem; }
+    .alert-zone { background:rgba(248,81,73,.12); border:1px solid rgba(248,81,73,.4); border-radius:10px; padding:1rem 1.2rem; }
+    .alert-zone-title { color:var(--clr-danger); font-weight:700; font-size:1.05rem; display:flex; align-items:center; gap:.5rem; }
+    .progress-snippet { background:#21262d; border-radius:6px; padding:.4rem .6rem; font-size:.82rem; margin-bottom:.4rem; border-left:3px solid var(--clr-accent); }
+    .nav-tabs { border-bottom:1px solid var(--clr-border); }
+    .nav-tabs .nav-link { color:var(--clr-muted); border:none; border-bottom:2px solid transparent; padding:.5rem .9rem; font-size:.85rem; }
+    .nav-tabs .nav-link.active { color:var(--clr-accent); background:transparent; border-bottom-color:var(--clr-accent); }
+    .nav-tabs .nav-link:hover { color:var(--clr-text); }
+    .loader-wrap { display:flex; align-items:center; justify-content:center; padding:2rem; color:var(--clr-muted); gap:.6rem; font-size:.85rem; }
+    #refresh-bar { position:fixed; bottom:0; left:0; right:0; background:#161b22ee; border-top:1px solid var(--clr-border); padding:.4rem 1rem; font-size:.75rem; color:var(--clr-muted); display:flex; justify-content:space-between; align-items:center; z-index:999; backdrop-filter:blur(6px); }
+    #refresh-bar .progress { width:120px; height:4px; background:var(--clr-border); }
+    #refresh-bar .progress-bar { background:var(--clr-accent); transition:width 1s linear; }
+    .content-area { padding-bottom:3rem; }
+    .err-box { color:var(--clr-danger); font-size:.82rem; padding:.5rem; border:1px solid rgba(248,81,73,.3); border-radius:6px; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:var(--clr-bg); }
+    ::-webkit-scrollbar-thumb { background:var(--clr-border); border-radius:3px; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-dark px-3 py-2" style="background:#161b22; border-bottom:1px solid #30363d;">
+  <a class="navbar-brand" href="#">
+    <i class="bi bi-building me-2" style="color:#58a6ff"></i>
+    <span style="color:#e6edf3">RHOM BHO</span>
+    <span class="badge ms-2 fs-6" style="background:#58a6ff20;color:#58a6ff;border:1px solid #58a6ff55">TITLE</span>
+  </a>
+  <div class="d-flex align-items-center gap-3">
+    <span class="text-muted small"><i class="bi bi-clock me-1"></i><span id="current-time"></span></span>
+    <button class="btn btn-sm" style="background:#21262d;color:#58a6ff;border:1px solid #30363d" onclick="refreshAll(true)">
+      <i class="bi bi-arrow-clockwise me-1"></i>Odśwież
+    </button>
+  </div>
+</nav>
+
+<div class="container-fluid content-area px-3 pt-3">
+
+  <!-- ALERT ZONE -->
+  <div class="alert-zone mb-3" id="alert-zone" style="display:none">
+    <div class="alert-zone-title mb-2"><i class="bi bi-exclamation-triangle-fill"></i>Wykryte zagrożenia / sygnały ryzyka</div>
+    <div id="alert-zone-items"></div>
+  </div>
+
+  <!-- ROW 1: GIEŁDA + FACTSHEET -->
+  <div class="row g-3 mb-3">
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header">
+          <i class="bi bi-graph-up-arrow me-2"></i>Dane giełdowe – SET Thailand
+          <a href="https://www.set.or.th/en/market/product/stock/quote/TITLE/price" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a>
+        </div>
+        <div class="card-body" id="stock-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Ładowanie...</div></div>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header">
+          <i class="bi bi-file-earmark-text me-2"></i>Profil spółki – Factsheet
+          <a href="https://www.set.or.th/en/market/product/stock/quote/TITLE/factsheet" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a>
+        </div>
+        <div class="card-body" id="factsheet-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Ładowanie...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <ul class="nav nav-tabs mb-3" id="mainTabs">
+    <li class="nav-item"><button class="nav-link active" data-tab="tab-threats"><i class="bi bi-exclamation-octagon me-1"></i>Zagrożenia<span class="badge badge-threat ms-1" id="threat-count" style="display:none"></span></button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-project"><i class="bi bi-buildings me-1"></i>Balcony Title</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-set-news"><i class="bi bi-newspaper me-1"></i>Ogłoszenia SET</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-google-news"><i class="bi bi-rss me-1"></i>Google News</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-rss"><i class="bi bi-newspaper me-1"></i>Prasa tajlandzka</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-investor"><i class="bi bi-person-badge me-1"></i>Relacje inwestorskie</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="tab-sec"><i class="bi bi-shield-exclamation me-1"></i>SEC Thailand</button></li>
+  </ul>
+
+  <!-- TAB CONTENTS -->
+  <div id="tab-threats" class="tab-content-panel">
+    <div id="threats-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Analizowanie...</div></div>
+  </div>
+
+  <div id="tab-project" class="tab-content-panel" style="display:none">
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-header"><i class="bi bi-buildings me-2"></i>Balcony Title – projekt deweloperski, Phuket<a href="https://balcony-title.phuketis.com/" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a></div>
+          <div class="card-body" id="project-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Pobieranie...</div></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card">
+          <div class="card-header"><i class="bi bi-link-45deg me-2"></i>Linki / Nawigacja projektu</div>
+          <div class="card-body" id="project-links-block" style="font-size:.82rem"><div class="loader-wrap"><div class="spinner-border spinner-border-sm"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-set-news" class="tab-content-panel" style="display:none">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-megaphone me-2"></i>Ogłoszenia giełdowe – SET Thailand<a href="https://www.set.or.th/en/market/product/stock/quote/TITLE/news" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a></div>
+      <div class="card-body" id="set-news-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Ładowanie...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-google-news" class="tab-content-panel" style="display:none">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-google me-2"></i>Google News – wiadomości o spółce</div>
+      <div class="card-body" id="google-news-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Pobieranie...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-rss" class="tab-content-panel" style="display:none">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-rss me-2"></i>Prasa tajlandzka – Bangkok Post, The Nation, Phuket News</div>
+      <div class="card-body" id="rss-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Pobieranie...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-investor" class="tab-content-panel" style="display:none">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-badge me-2"></i>Relacje inwestorskie – investor.rhombho.co.th<a href="https://investor.rhombho.co.th/en/home" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a></div>
+      <div class="card-body" id="investor-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Pobieranie...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-sec" class="tab-content-panel" style="display:none">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-shield-exclamation me-2"></i>SEC Thailand – komunikaty regulatoryjne<a href="https://www.sec.or.th" target="_blank" class="float-end" style="color:var(--clr-muted)"><i class="bi bi-box-arrow-up-right"></i></a></div>
+      <div class="card-body" id="sec-block"><div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>Pobieranie...</div></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- REFRESH BAR -->
+<div id="refresh-bar">
+  <div><i class="bi bi-arrow-repeat me-1"></i>Auto-odświeżanie za: <strong id="countdown">5:00</strong></div>
+  <div class="d-flex align-items-center gap-2">
+    <span id="last-refresh" class="text-muted"></span>
+    <div class="progress"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   KONFIGURACJA
+   ============================================================ */
+const TICKER = 'TITLE';
+const REFRESH_INTERVAL = 300; // sekund
+
+// CORS proxy – kolejność prób
+const PROXY_A = url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+const PROXY_B = url => `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+const THREAT_KEYWORDS = [
+  "lawsuit","fraud","sec investigation","investigation","penalty","fine",
+  "loss","delay","scandal","bankruptcy","default","regulatory","complaint",
+  "warning","debt overdue","suspended","halted","concern","risk",
+  "decline","slump","drops","falls","court","legal action","probe",
+  "allegation","misconduct","violation","breach","insolvency","writedown",
+  "impairment","downgrade","negative outlook","profit warning","missed target",
+  "construction halt","permit revoked","เบี้ยวหนี้","ฟ้อง","ปรับ","ล้มละลาย",
+  "ตรวจสอบ","ผิดนัด","ระงับ","หยุดก่อสร้าง","คดี",
+];
+const POSITIVE_THREATS = ["not a concern","no lawsuit","acquitted","resolved"];
+
+let countdown = REFRESH_INTERVAL;
+let allThreats = [];
+
+/* ============================================================
+   POMOCNIKI
+   ============================================================ */
+function scoreThreat(text) {
+  const t = (text || '').toLowerCase();
+  if (POSITIVE_THREATS.some(p => t.includes(p))) return 0;
+  return THREAT_KEYWORDS.reduce((n, kw) => n + (t.includes(kw) ? 1 : 0), 0);
+}
+
+function fmtDate(raw) {
+  if (!raw) return '';
+  try {
+    return new Date(raw).toLocaleString('pl-PL', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) { return raw; }
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function loader(msg) {
+  return `<div class="loader-wrap"><div class="spinner-border spinner-border-sm me-2"></div>${msg}</div>`;
+}
+function errBox(msg) {
+  return `<div class="err-box"><i class="bi bi-wifi-off me-2"></i>${escHtml(msg)}</div>`;
+}
+function noItems(label) {
+  return `<div class="text-muted small p-3"><i class="bi bi-inbox me-2"></i>Brak wyników: ${escHtml(label)}</div>`;
+}
+
+/* ============================================================
+   FETCH – próbuje bezpośrednio, potem proxy A, potem proxy B
+   ============================================================ */
+async function fetchJSON(url) {
+  const attempts = [url, PROXY_A(url), PROXY_B(url)];
+  for (const u of attempts) {
+    try {
+      const r = await fetch(u, { signal: AbortSignal.timeout(12000) });
+      if (r.ok) return await r.json();
+    } catch(e) { /* próbuj kolejny */ }
+  }
+  throw new Error(`Nie można pobrać JSON: ${url}`);
+}
+
+async function fetchHTML(url) {
+  const attempts = [PROXY_A(url), PROXY_B(url)];
+  for (const u of attempts) {
+    try {
+      const r = await fetch(u, { signal: AbortSignal.timeout(15000) });
+      if (r.ok) return await r.text();
+    } catch(e) { /* próbuj kolejny */ }
+  }
+  throw new Error(`Nie można pobrać HTML: ${url}`);
+}
+
+/* ============================================================
+   RSS – parsowanie XML w przeglądarce
+   ============================================================ */
+function parseRSS(xmlText) {
+  try {
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (doc.querySelector('parsererror')) return [];
+    const items = [];
+    doc.querySelectorAll('item, entry').forEach(item => {
+      // Link: RSS = textContent, Atom = atrybut href
+      const linkEl = item.querySelector('link');
+      const link = linkEl?.getAttribute('href') || linkEl?.textContent?.trim() || '';
+      // Opis: różne nazwy tagów
+      const descEl = item.querySelector('description, summary, content');
+      const desc = descEl?.textContent?.trim() || '';
+      items.push({
+        title: item.querySelector('title')?.textContent?.trim() || '',
+        link,
+        pubDate: item.querySelector('pubDate, published, updated')?.textContent?.trim() || '',
+        description: desc.replace(/<[^>]+>/g, '').substring(0, 400),
+      });
+    });
+    return items;
+  } catch(e) { return []; }
+}
+
+async function fetchRSS(feedUrl) {
+  // Próba 1: allorigins
+  try {
+    const r = await fetch(PROXY_A(feedUrl), { signal: AbortSignal.timeout(12000) });
+    if (r.ok) {
+      const items = parseRSS(await r.text());
+      if (items.length) return items;
+    }
+  } catch(e) {}
+  // Próba 2: corsproxy
+  try {
+    const r = await fetch(PROXY_B(feedUrl), { signal: AbortSignal.timeout(12000) });
+    if (r.ok) {
+      const items = parseRSS(await r.text());
+      if (items.length) return items;
+    }
+  } catch(e) {}
+  // Próba 3: rss2json.com (zapasowy)
+  try {
+    const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=20`);
+    const d = await r.json();
+    if (d.status === 'ok' && d.items?.length) {
+      return d.items.map(i => ({
+        title: i.title || '',
+        link: i.link || '',
+        pubDate: i.pubDate || '',
+        description: (i.description || '').replace(/<[^>]+>/g, '').substring(0, 400),
+      }));
+    }
+  } catch(e) {}
+  return [];
+}
+
+/* ============================================================
+   RENDEROWANIE
+   ============================================================ */
+function threatClass(score) {
+  if (score >= 2) return 'threat-high';
+  if (score >= 1) return 'threat-med';
+  return '';
+}
+
+function renderNewsItem(item) {
+  const tc = threatClass(item.threat || 0);
+  const threatBadge = item.threat >= 2
+    ? `<span class="badge badge-threat ms-1">⚠ zagrożenie</span>`
+    : item.threat === 1
+    ? `<span class="badge badge-warn ms-1">⚡ uwaga</span>`
+    : '';
+  const sourceBadge = `<span class="badge badge-source ms-1">${escHtml(item.source || '')}</span>`;
+  const typeBadge = item.type ? `<span class="badge badge-type ms-1">${escHtml(item.type)}</span>` : '';
+  const titleHtml = item.link
+    ? `<a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>`
+    : escHtml(item.title);
+  const summary = item.summary ? `<div class="news-summary">${escHtml(item.summary)}</div>` : '';
+  const date = item.published || item.date || '';
+  return `
+    <div class="news-item ${tc}">
+      <div class="news-title">${titleHtml}${threatBadge}</div>
+      <div class="news-meta">${date ? `<i class="bi bi-calendar2 me-1"></i>${escHtml(date)} ` : ''}${sourceBadge}${typeBadge}</div>
+      ${summary}
+    </div>`;
+}
+
+/* ============================================================
+   ZBIERANIE ZAGROŻEŃ (agregacja ze wszystkich źródeł)
+   ============================================================ */
+function collectThreats(items, sectionLabel) {
+  for (const item of (items || [])) {
+    if ((item.threat || 0) >= 1) allThreats.push({ ...item, _section: sectionLabel });
+  }
+  renderThreats();
+}
+
+function renderThreats() {
+  const el = document.getElementById('threats-block');
+  const alertZone = document.getElementById('alert-zone');
+  const alertItems = document.getElementById('alert-zone-items');
+  const badge = document.getElementById('threat-count');
+
+  const sorted = [...allThreats].sort((a, b) => (b.threat || 0) - (a.threat || 0));
+  const unique = [];
+  const seen = new Set();
+  for (const t of sorted) {
+    if (!seen.has(t.title)) { seen.add(t.title); unique.push(t); }
+  }
+
+  if (unique.length > 0) {
+    badge.textContent = unique.length;
+    badge.style.display = '';
+    alertZone.style.display = 'block';
+    alertItems.innerHTML = unique.slice(0, 3).map(renderNewsItem).join('');
+  } else {
+    badge.style.display = 'none';
+    alertZone.style.display = 'none';
+  }
+
+  el.innerHTML = unique.length
+    ? `<div class="mb-2 text-muted small"><i class="bi bi-funnel me-1"></i>Wyfiltrowano ${unique.length} sygnałów ze wszystkich źródeł</div>`
+      + unique.map(renderNewsItem).join('')
+    : `<div class="text-center py-4 text-muted">
+        <i class="bi bi-shield-check" style="font-size:2rem;color:var(--clr-ok)"></i>
+        <div class="mt-2">Brak wykrytych zagrożeń we wszystkich źródłach</div>
+        <div class="small mt-1">Dane są ładowane – poczekaj na zakończenie pobierania</div>
+      </div>`;
+}
+
+/* ============================================================
+   LOADERS
+   ============================================================ */
+
+async function loadStock() {
+  const el = document.getElementById('stock-block');
+  try {
+    const [q, perf] = await Promise.allSettled([
+      fetchJSON(`https://www.set.or.th/api/set/stock/${TICKER}/quote-symbol`),
+      fetchJSON(`https://www.set.or.th/api/set/stock/${TICKER}/performance`),
+    ]);
+    const quote = q.status === 'fulfilled' ? q.value : {};
+    const p     = perf.status === 'fulfilled' ? perf.value : {};
+
+    const price     = quote.last ?? quote.close ?? quote.price ?? '—';
+    const change    = quote.change ?? quote.priceChange ?? null;
+    const changePct = quote.percentChange ?? quote.changePercent ?? null;
+    const cc        = change > 0 ? 'stock-change-pos' : change < 0 ? 'stock-change-neg' : 'stock-change-neu';
+    const arrow     = change > 0 ? '▲' : change < 0 ? '▼' : '—';
+
+    const rows = [
+      ['Kurs',         `<span class="stock-price ${cc}">${price} THB</span>`],
+      ['Zmiana',       change != null ? `<span class="${cc}">${arrow} ${change} (${changePct}%)</span>` : '—'],
+      ['Otwarcie',     quote.open  ?? '—'],
+      ['Max dnia',     quote.high  ?? '—'],
+      ['Min dnia',     quote.low   ?? '—'],
+      ['Wolumen',      quote.volume      ? Number(quote.volume).toLocaleString('pl')                  : '—'],
+      ['Kapitalizacja',quote.marketCap   ? (Number(quote.marketCap)/1e9).toFixed(2)+' mld THB'       : '—'],
+      ['P/E',          quote.pe ?? p.pe  ?? '—'],
+      ['EPS',          quote.eps ?? p.eps ?? '—'],
+    ];
+
+    el.innerHTML = `
+      <table class="table table-sm table-borderless mb-0" style="color:var(--clr-text)">
+        ${rows.map(([l,v]) => `<tr><td class="stock-label">${l}</td><td class="stock-val text-end">${v}</td></tr>`).join('')}
+      </table>
+      <div class="mt-2 text-end">
+        <small class="text-muted">Źródło: <a href="https://www.set.or.th/en/market/product/stock/quote/${TICKER}/price" target="_blank" style="color:var(--clr-muted)">SET Thailand</a></small>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = errBox('Błąd API giełdy: ' + e.message);
+  }
+}
+
+async function loadFactsheet() {
+  const el = document.getElementById('factsheet-block');
+  try {
+    const p = await fetchJSON(`https://www.set.or.th/api/set/stock/${TICKER}/profile`);
+    const fields = [
+      ['Pełna nazwa',      p.nameTH || p.nameEN || p.companyName],
+      ['Sektor',           p.sector || p.sectorName],
+      ['Branża',           p.industry || p.industryName],
+      ['Siedziba',         p.address || p.registeredAddress],
+      ['Strona www',       p.website ? `<a href="${escHtml(p.website)}" target="_blank" style="color:var(--clr-accent)">${escHtml(p.website)}</a>` : null],
+      ['Data debiutu',     p.listedDate || p.foundedYear],
+      ['Kapitał',          p.paidUpCapital   ? Number(p.paidUpCapital).toLocaleString('pl')  + ' THB' : null],
+      ['Akcji w obrocie',  p.listedShares    ? Number(p.listedShares).toLocaleString('pl')            : null],
+      ['Dywidenda',        p.dividendYield   ? p.dividendYield + '%'                                  : null],
+    ].filter(([,v]) => v);
+
+    if (!fields.length) {
+      el.innerHTML = `<pre style="color:var(--clr-muted);font-size:.75rem;overflow:auto;max-height:280px">${escHtml(JSON.stringify(p, null, 2))}</pre>
+        <small class="text-muted">Źródło: SET – profil spółki</small>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="row">
+        ${fields.map(([l,v]) => `
+          <div class="col-sm-6 mb-2">
+            <div class="stock-label">${l}</div>
+            <div style="font-size:.9rem">${v || '—'}</div>
+          </div>`).join('')}
+      </div>
+      <div class="text-end mt-2">
+        <small class="text-muted">Źródło: <a href="https://www.set.or.th/en/market/product/stock/quote/${TICKER}/factsheet" target="_blank" style="color:var(--clr-muted)">SET – Factsheet</a></small>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = errBox('Błąd: ' + e.message);
+  }
+}
+
+async function loadSetNews() {
+  const el = document.getElementById('set-news-block');
+  try {
+    const d = await fetchJSON(`https://www.set.or.th/api/set/news/search?symbol=${TICKER}&lang=en&limit=30`);
+    const items = (d.newsInfoList || []).map(item => {
+      const nid = item.id || '';
+      return {
+        title:     item.headline || '',
+        date:      fmtDate(item.datetime || ''),
+        type:      item.newsType || '',
+        threat:    scoreThreat(item.headline || ''),
+        link:      nid ? `https://www.set.or.th/en/market/news-and-alert/news/detail/${nid}` : '',
+        source:    'SET – giełda tajlandzka',
+      };
+    }).sort((a, b) => (b.threat || 0) - (a.threat || 0));
+
+    collectThreats(items, 'Ogłoszenia SET');
+    el.innerHTML = items.length ? items.slice(0,20).map(renderNewsItem).join('') : noItems('Ogłoszenia SET');
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+async function loadGoogleNews() {
+  const el = document.getElementById('google-news-block');
+  try {
+    const queries = [
+      '"RHOM BHO" property',
+      '"RHOM BHO PROPERTY"',
+      '"Balcony Title" Phuket',
+      'TITLE SET Thailand property developer',
+    ];
+    const allItems = [];
+    const seen = new Set();
+
+    for (const q of queries) {
+      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=TH&ceid=TH:en`;
+      const rssItems = await fetchRSS(feedUrl);
+      for (const item of rssItems.slice(0, 6)) {
+        if (seen.has(item.link)) continue;
+        seen.add(item.link);
+        const combined = (item.title || '') + ' ' + (item.description || '');
+        allItems.push({
+          title:     item.title || '',
+          link:      item.link  || '',
+          published: fmtDate(item.pubDate || ''),
+          summary:   item.description || '',
+          threat:    scoreThreat(combined),
+          source:    'Google News',
+        });
+      }
+    }
+
+    allItems.sort((a, b) => (b.threat || 0) - (a.threat || 0));
+    collectThreats(allItems, 'Google News');
+    el.innerHTML = allItems.length ? allItems.slice(0,20).map(renderNewsItem).join('') : noItems('Google News');
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+async function loadRss() {
+  const el = document.getElementById('rss-block');
+  try {
+    const feeds = [
+      ['Bangkok Post – Business', 'https://www.bangkokpost.com/rss/data/business.xml'],
+      ['The Nation Thailand',     'https://www.nationthailand.com/rss/business.xml'],
+      ['Phuket News',             'https://www.thephuketnews.com/rss/news.xml'],
+    ];
+    const keywords = [
+      'rhom bho','title set','balcony title','phuket property',
+      'thailand property developer','thai real estate',
+    ];
+    const allItems = [];
+    const seen = new Set();
+
+    for (const [sourceName, feedUrl] of feeds) {
+      const rssItems = await fetchRSS(feedUrl);
+      for (const item of rssItems) {
+        const combined = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+        if (!keywords.some(kw => combined.includes(kw))) continue;
+        if (seen.has(item.link)) continue;
+        seen.add(item.link);
+        allItems.push({
+          title:     item.title || '',
+          link:      item.link  || '',
+          published: fmtDate(item.pubDate || ''),
+          summary:   item.description || '',
+          threat:    scoreThreat(combined),
+          source:    sourceName,
+        });
+      }
+    }
+
+    allItems.sort((a, b) => (b.threat || 0) - (a.threat || 0));
+    collectThreats(allItems, 'Prasa tajlandzka');
+    el.innerHTML = allItems.length
+      ? allItems.map(renderNewsItem).join('')
+      : noItems('Prasa tajlandzka – brak trafień dla tej spółki');
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+async function loadProject() {
+  const elMain  = document.getElementById('project-block');
+  const elLinks = document.getElementById('project-links-block');
+  const siteUrl = 'https://balcony-title.phuketis.com/';
+  try {
+    const html = await fetchHTML(siteUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const pageTitle = doc.title || '';
+    const metaDesc  = doc.querySelector('meta[name="description"]')?.content || '';
+
+    const headings = [];
+    doc.querySelectorAll('h1,h2,h3').forEach(h => {
+      const t = h.textContent.trim();
+      if (t && t.length > 5) headings.push(t);
+    });
+
+    const paragraphs = [];
+    doc.querySelectorAll('p').forEach(p => {
+      const t = p.textContent.trim();
+      if (t && t.length > 40) paragraphs.push(t);
+    });
+
+    const progressKws = ['progress','complete','construction','unit','floor','phase','delivery','handover','sold','available','ready'];
+    const progressSnippets = new Set();
+    doc.querySelectorAll('*').forEach(el => {
+      if (el.children.length === 0) {
+        const t = el.textContent.trim();
+        if (t.length > 20 && progressKws.some(kw => t.toLowerCase().includes(kw)))
+          progressSnippets.add(t.substring(0, 200));
+      }
+    });
+
+    const navLinks = [];
+    const seenHref = new Set();
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const text = a.textContent.trim();
+      const href = a.getAttribute('href') || '';
+      if (!text || text.length < 3 || href.startsWith('#')) return;
+      const full = href.startsWith('http') ? href : 'https://balcony-title.phuketis.com' + (href.startsWith('/') ? '' : '/') + href;
+      if (!seenHref.has(full)) { seenHref.add(full); navLinks.push({ text, href: full }); }
+    });
+
+    const imgCount = doc.querySelectorAll('img').length;
+    const threat = scoreThreat(headings.join(' ') + ' ' + paragraphs.join(' '));
+
+    const headingsHtml = headings.length
+      ? `<div class="mb-3"><div class="section-title"><i class="bi bi-list-ul"></i>Sekcje strony</div>
+          ${headings.slice(0,15).map(h => `<div class="progress-snippet">${escHtml(h)}</div>`).join('')}</div>`
+      : '';
+
+    const snippetsArr = [...progressSnippets].slice(0, 10);
+    const progressHtml = snippetsArr.length
+      ? `<div class="mb-3"><div class="section-title"><i class="bi bi-bar-chart-steps"></i>Informacje o postępie / budowie</div>
+          ${snippetsArr.map(s => `<div class="progress-snippet">${escHtml(s)}</div>`).join('')}</div>`
+      : `<div class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i>Nie znaleziono wyraźnych informacji o postępie budowy na stronie głównej.</div>`;
+
+    const paraHtml = paragraphs.length
+      ? `<div class="mb-3"><div class="section-title"><i class="bi bi-file-text"></i>Treść strony</div>
+          ${paragraphs.slice(0,10).map(t => `<p style="font-size:.85rem;color:#adbac7">${escHtml(t)}</p>`).join('')}</div>`
+      : '';
+
+    const threatBanner = threat >= 1
+      ? `<div class="news-item ${threat>=2?'threat-high':'threat-med'} mb-3">
+          <div class="news-title">⚠ Wykryto sygnały ryzyka na stronie projektu</div>
+          <div class="news-meta">Wynik ryzyka: ${threat}</div></div>`
+      : '';
+
+    elMain.innerHTML = `
+      ${threatBanner}
+      <div class="mb-2"><div class="stock-label">Tytuł strony</div><div class="stock-val">${escHtml(pageTitle)}</div></div>
+      ${metaDesc ? `<div class="mb-3"><div class="stock-label">Opis meta</div><div style="font-size:.85rem;color:#adbac7">${escHtml(metaDesc)}</div></div>` : ''}
+      ${headingsHtml}${progressHtml}${paraHtml}
+      <div class="text-end mt-2">
+        <small class="text-muted">Źródło: <a href="${siteUrl}" target="_blank" style="color:var(--clr-muted)">balcony-title.phuketis.com</a> | Obrazki: ${imgCount}</small>
+      </div>`;
+
+    elLinks.innerHTML = navLinks.slice(0, 20)
+      .map(l => `<div class="mb-1"><a href="${escHtml(l.href)}" target="_blank" style="color:var(--clr-accent);font-size:.82rem"><i class="bi bi-link-45deg me-1"></i>${escHtml(l.text)}</a></div>`)
+      .join('') || '<div class="text-muted small">Brak linków</div>';
+
+    if (threat > 0) {
+      collectThreats([{
+        title:  `Projekt Balcony Title – sygnał ryzyka (wynik: ${threat})`,
+        link:   siteUrl, source: 'balcony-title.phuketis.com', threat,
+        summary: [...headings, ...paragraphs].join(' ').substring(0, 300),
+      }], 'Projekt');
+    }
+  } catch(e) {
+    elMain.innerHTML  = errBox('Błąd: ' + e.message);
+    elLinks.innerHTML = '';
+  }
+}
+
+async function loadInvestor() {
+  const el  = document.getElementById('investor-block');
+  const url = 'https://investor.rhombho.co.th/en/home';
+  try {
+    const html = await fetchHTML(url);
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+    const newsItems = [];
+    const selectors = '[class*="news"],[class*="announcement"],[class*="update"],[class*="card"],[class*="press"],article';
+    doc.querySelectorAll(selectors).forEach(container => {
+      const titleEl = container.querySelector('h1,h2,h3,h4,a');
+      if (!titleEl) return;
+      const text = titleEl.textContent.trim();
+      if (text.length < 10) return;
+      const dateEl = container.querySelector('time,[class*="date"],[class*="time"]');
+      const descEl = container.querySelector('p');
+      const linkEl = container.querySelector('a[href]');
+      let href = linkEl?.getAttribute('href') || '';
+      if (href && !href.startsWith('http')) href = 'https://investor.rhombho.co.th' + href;
+      newsItems.push({
+        title: text,
+        date:  dateEl?.textContent?.trim() || '',
+        description: descEl?.textContent?.trim().substring(0, 200) || '',
+        link:  href,
+        threat: scoreThreat(text),
+        source: 'investor.rhombho.co.th',
+      });
+    });
+
+    const mainParas = [];
+    doc.querySelectorAll('p').forEach(p => {
+      const t = p.textContent.trim();
+      if (t && t.length > 50) mainParas.push(t);
+    });
+
+    let html2 = '';
+    if (newsItems.length) {
+      html2 += `<div class="section-title"><i class="bi bi-newspaper"></i>Aktualności IR</div>`;
+      html2 += newsItems.slice(0, 15).map(renderNewsItem).join('');
+    }
+    if (mainParas.length) {
+      html2 += `<hr style="border-color:var(--clr-border)"/>
+        <div class="section-title"><i class="bi bi-file-text"></i>Treść strony IR</div>
+        ${mainParas.slice(0, 8).map(t => `<p style="font-size:.85rem;color:#adbac7">${escHtml(t)}</p>`).join('')}`;
+    }
+    if (!html2) html2 = noItems('Relacje inwestorskie – strona może wymagać JavaScript (treść dynamiczna)');
+    html2 += `<div class="text-end mt-2"><small class="text-muted">Źródło: <a href="${url}" target="_blank" style="color:var(--clr-muted)">investor.rhombho.co.th</a></small></div>`;
+
+    el.innerHTML = html2;
+    collectThreats(newsItems, 'Relacje inwestorskie');
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+async function loadSec() {
+  const el = document.getElementById('sec-block');
+  try {
+    const feedUrl = `https://news.google.com/rss/search?q=site%3Asec.or.th+%22RHOM+BHO%22+OR+%22TITLE%22+property&hl=en&gl=TH&ceid=TH:en`;
+    const rssItems = await fetchRSS(feedUrl);
+    const items = rssItems.slice(0, 10).map(item => ({
+      title:     item.title || '',
+      link:      item.link  || '',
+      published: fmtDate(item.pubDate || ''),
+      summary:   item.description || '',
+      threat:    scoreThreat((item.title || '') + ' ' + (item.description || '')),
+      source:    'SEC Thailand (via Google News)',
+    }));
+
+    collectThreats(items, 'SEC Thailand');
+    el.innerHTML = items.length
+      ? items.map(renderNewsItem).join('')
+      : noItems('SEC Thailand – brak wyników (możliwy brak historii naruszeń)');
+    el.innerHTML += `<div class="text-end mt-2"><small class="text-muted">Sprawdź bezpośrednio: <a href="https://www.sec.or.th" target="_blank" style="color:var(--clr-muted)">www.sec.or.th</a></small></div>`;
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+document.querySelectorAll('[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content-panel').forEach(p => p.style.display = 'none');
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).style.display = '';
+  });
+});
+
+/* ============================================================
+   AUTO-REFRESH
+   ============================================================ */
+function updateClock() {
+  document.getElementById('current-time').textContent = new Date().toLocaleTimeString('pl-PL');
+}
+
+function updateCountdown() {
+  const m = Math.floor(countdown / 60).toString();
+  const s = (countdown % 60).toString().padStart(2, '0');
+  document.getElementById('countdown').textContent = `${m}:${s}`;
+  document.getElementById('progress-bar').style.width = (countdown / REFRESH_INTERVAL * 100).toFixed(1) + '%';
+}
+
+async function refreshAll(manual = false) {
+  allThreats = [];
+  countdown  = REFRESH_INTERVAL;
+  document.getElementById('last-refresh').textContent = 'Aktualizacja: ' + new Date().toLocaleTimeString('pl-PL');
+
+  if (manual) {
+    ['stock-block','factsheet-block','threats-block','set-news-block',
+     'google-news-block','rss-block','project-block','project-links-block',
+     'investor-block','sec-block'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = loader('Odświeżanie...');
+    });
+    document.getElementById('alert-zone').style.display = 'none';
+  }
+
+  await Promise.allSettled([
+    loadStock(), loadFactsheet(),
+    loadSetNews(), loadGoogleNews(), loadRss(),
+    loadProject(), loadInvestor(), loadSec(),
+  ]);
+}
+
+/* ============================================================
+   START
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  refreshAll();
+  setInterval(() => {
+    updateClock();
+    countdown--;
+    updateCountdown();
+    if (countdown <= 0) refreshAll();
+  }, 1000);
+  updateClock();
+});
+</script>
+</body>
+</html>
